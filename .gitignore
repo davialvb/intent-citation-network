@@ -1,3 +1,10 @@
+# project data
+data/3C/*.csv
+data/scicite/*.jsonl
+data/acl-arc/*.jsonl
+data/scicite/scaffolds
+data/acl-arc/scaffolds
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
