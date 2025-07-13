@@ -113,8 +113,8 @@ intent-citation-network/
 1. **Clone the repo**:
 
 ```bash
-git clone https://github.com/your-username/your-repo-name.git
-cd your-repo-name
+git clone https://github.com/your-username/intent-citation-classification.git
+cd intent-citation-classification
 ```
 
 2. **Set up environment**:
@@ -127,7 +127,7 @@ source venv/bin/activate  # Windows: venv\Scripts\activate
 3. **Install dependencies**:
 
 ```bash
-pip install -r requirements.txt
+uv install
 ```
 
 4. **Run the model or analysis**:
