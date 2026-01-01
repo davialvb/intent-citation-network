@@ -4,6 +4,7 @@ data/scicite/*.jsonl
 data/acl-arc/*.jsonl
 data/scicite/scaffolds
 data/acl-arc/scaffolds
+data/unarxiv/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

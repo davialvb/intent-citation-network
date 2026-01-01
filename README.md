@@ -78,10 +78,25 @@ Citation intent significantly affects network metrics.
 .
 ├── data/              # Citation datasets
 ├── models/            # Trained model weights/configs
-├── src/               # Source code
+├── src/                       # Source code
 │   ├── classification/
 │   ├── network_analysis/
-│   └── utils/
+│   ├── utils/
+│   └── gan_bert_src/          # GAN-BERT implementation
+│       ├── gan_bert/
+│       │   ├── __init__.py
+│       │   ├── config.py
+│       │   ├── data.py
+│       │   ├── losses.py
+│       │   ├── models.py
+│       │   ├── train_eval.py
+│       │   └── utils.py
+│       │
+│       ├── cli_train.py       # Train GAN-BERT
+│       ├── cli_optuna.py      # Hyperparameter search
+│       ├── cli_tsne.py        # Representation analysis
+│       ├── requirements.txt
+│       └── README.md
 ├── notebooks/         # Jupyter notebooks
 ├── results/           # Output figures, tables, metrics
 ├── LICENSE
