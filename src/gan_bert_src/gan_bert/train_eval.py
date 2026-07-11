@@ -7,7 +7,7 @@ import numpy as np
 import torch
 from sklearn.metrics import classification_report, confusion_matrix, f1_score
 
-from .losses import discriminator_loss, generator_loss, get_cgan_input
+from .losses import consistency_loss, discriminator_loss, generator_loss, get_cgan_input
 from .utils import format_time, get_transformer_representation
 
 
@@ -27,7 +27,7 @@ def predict(dataloader, transformer, discriminator, device: torch.device):
         texts = batch["texts"]
 
         outputs = transformer(input_ids, attention_mask=attn_mask)
-        rep = get_transformer_representation(outputs)
+        rep = get_transformer_representation(outputs, attention_mask=attn_mask)
 
         _, logits, _ = discriminator(rep)
         filtered_logits = logits[:, 0:-1]
@@ -58,7 +58,7 @@ def evaluate(dataloader, transformer, discriminator, device: torch.device, verbo
         labels = batch["labels"].to(device)
 
         outputs = transformer(input_ids, attention_mask=attn_mask)
-        rep = get_transformer_representation(outputs)
+        rep = get_transformer_representation(outputs, attention_mask=attn_mask)
 
         _, logits, _ = discriminator(rep)
         filtered_logits = logits[:, 0:-1]
@@ -77,6 +77,8 @@ def evaluate(dataloader, transformer, discriminator, device: torch.device, verbo
     f1_macro = float(f1_score(y_true, y_pred, average="macro"))
     cm = confusion_matrix(y_true, y_pred)
 
+    report_dict = classification_report(y_true, y_pred, zero_division=1.0, output_dict=True)
+
     if verbose:
         print(f"  F1-macro: {f1_macro:.4f}")
         print(f"  Accuracy: {acc:.4f}")
@@ -87,6 +89,7 @@ def evaluate(dataloader, transformer, discriminator, device: torch.device, verbo
         "accuracy": acc,
         "avg_loss": total_loss / max(1, len(dataloader)),
         "confusion_matrix": cm,
+        "classification_report": report_dict,
         "y_true": y_true,
         "y_pred": y_pred,
     }
@@ -109,6 +112,8 @@ def train_one_epoch(
     scheduler_d=None,
     scheduler_g=None,
     verbose: bool = True,
+    label_smoothing: float = 0.0,
+    consistency_weight: float = 0.0,
 ):
     transformer.train()
     generator.train()
@@ -131,7 +136,7 @@ def train_one_epoch(
         real_batch_size = input_ids.size(0)
 
         outputs = transformer(input_ids, attention_mask=attn_mask)
-        real_rep = get_transformer_representation(outputs)
+        real_rep = get_transformer_representation(outputs, attention_mask=attn_mask)
 
         noise, cond_labels = get_cgan_input(real_batch_size, noise_size, labels, device=device)
         fake_rep = generator(noise, cond_labels)
@@ -153,7 +158,17 @@ def train_one_epoch(
             num_labels=num_labels,
             epsilon=epsilon,
             device=device,
+            label_smoothing=label_smoothing,
         )
+
+        if consistency_weight > 0:
+            # Second stochastic forward pass (independent dropout / Gaussian-noise
+            # draws) through the discriminator on the same real representations;
+            # penalize disagreement on the unlabeled rows only.
+            _, real_logits_b, _ = discriminator(real_rep)
+            d_loss = d_loss + consistency_weight * consistency_loss(
+                real_logits, real_logits_b, label_mask=label_mask, num_labels=num_labels
+            )
 
         gen_optimizer.zero_grad(set_to_none=True)
         dis_optimizer.zero_grad(set_to_none=True)

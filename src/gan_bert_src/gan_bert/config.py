@@ -22,6 +22,9 @@ class GanBertConfig:
     out_dropout_rate: float = 0.2
     discriminator_noise_stddev: float = 0.1
 
+    # partial fine-tuning of the transformer encoder
+    num_trainable_layers: int = 2
+
     # optimization
     learning_rate_generator: float = 2e-7
     learning_rate_discriminator: float = 2e-7

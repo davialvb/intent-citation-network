@@ -1,10 +1,16 @@
-# project data
-data/3C/*.csv
-data/scicite/*.jsonl
-data/acl-arc/*.jsonl
-data/scicite/scaffolds
-data/acl-arc/scaffolds
+# project data (raw archives/dumps are large and regenerable from source)
+data/*/raw/
+data/*/*.zip
 data/unarxiv/*
+
+# GAN-BERT / baseline experiment outputs: keep lightweight thesis artifacts
+# (metrics, reports, plots, predictions) tracked, but model checkpoint
+# weights are large (100s of MB each, many per run) and reproducible by
+# re-running the training scripts -- never commit them.
+results/**/discriminator/*.pth
+results/**/generator/*.pth
+results/**/transformer/*.pth
+results/**/logs/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

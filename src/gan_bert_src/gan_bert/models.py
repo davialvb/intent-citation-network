@@ -74,6 +74,18 @@ class Generator(nn.Module):
         return self.layers(noise)
 
 
+class SimpleClassifier(nn.Module):
+    """Plain linear classification head, used for the no-GAN baseline comparison."""
+
+    def __init__(self, input_size: int = 768, num_labels: int = 2, dropout_rate: float = 0.1):
+        super().__init__()
+        self.dropout = nn.Dropout(p=dropout_rate)
+        self.linear = nn.Linear(input_size, num_labels)
+
+    def forward(self, input_rep: torch.Tensor) -> torch.Tensor:
+        return self.linear(self.dropout(input_rep))
+
+
 class GaussianNoise(nn.Module):
     """Gaussian noise layer used by the discriminator."""
 
