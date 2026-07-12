@@ -1,6 +1,7 @@
 #!/usr/bin/env python
-"""Combine results/baseline, results/gan_bert (vanilla), and
-results/gan_bert_improved into one comparison table for the thesis."""
+"""Combine every experiment variant (partial vs. full fine-tuning; no-GAN
+baseline vs. vanilla GAN-BERT vs. improved GAN-BERT; in-domain vs.
+cross-dataset unlabeled data) into one comparison table for the thesis."""
 from __future__ import annotations
 
 import json
@@ -13,10 +14,16 @@ RESULTS_ROOT = REPO_ROOT / "results"
 
 MODEL_LABELS = {"specter2": "SPECTER2", "scibert": "SciBERT", "xlnet": "XLNet"}
 DATASET_LABELS = {"scicite": "SciCite", "acl-arc": "ACL-ARC", "3C": "3C"}
+
+# variant_dir -> (display name, ordering key)
 VARIANTS = {
-    "baseline": "No-GAN baseline",
-    "gan_bert": "GAN-BERT (vanilla)",
-    "gan_bert_improved": "GAN-BERT (improved)",
+    "baseline": "No-GAN baseline (partial)",
+    "baseline_full": "No-GAN baseline (full)",
+    "gan_bert": "GAN-BERT vanilla (partial)",
+    "gan_bert_full": "GAN-BERT vanilla (full)",
+    "gan_bert_improved": "GAN-BERT improved (partial)",
+    "gan_bert_improved_full": "GAN-BERT improved (full)",
+    "gan_bert_improved_cross": "GAN-BERT improved (partial, cross-dataset unlabeled)",
 }
 
 
@@ -48,17 +55,28 @@ def collect(variant_dir: str) -> list[dict]:
 
 
 def main() -> None:
-    rows = collect("baseline") + collect("gan_bert") + collect("gan_bert_improved")
+    rows = []
+    for variant_dir in VARIANTS:
+        rows.extend(collect(variant_dir))
     df = pd.DataFrame(rows)
     df.to_csv(RESULTS_ROOT / "comparison.csv", index=False)
 
-    pivot_f1 = df.pivot_table(index=["dataset", "model"], columns="variant", values="f1_macro")
-    variant_order = [v for v in VARIANTS.values() if v in pivot_f1.columns]
-    pivot_f1 = pivot_f1[variant_order]
+    variant_order = [v for v in VARIANTS.values() if v in df["variant"].unique()]
+    pivot_f1 = df.pivot_table(index=["dataset", "model"], columns="variant", values="f1_macro")[variant_order]
     pivot_acc = df.pivot_table(index=["dataset", "model"], columns="variant", values="accuracy")[variant_order]
 
+    best_f1_row = df.loc[df["f1_macro"].idxmax()]
+
     lines = [
-        "# Baseline vs. GAN-BERT (vanilla) vs. GAN-BERT (improved)\n",
+        "# GAN-BERT citation-intent experiments: full comparison\n",
+        "Dimensions varied: (1) partial fine-tuning (last 2 transformer layers + pooler) "
+        "vs. full fine-tuning; (2) no-GAN baseline vs. vanilla GAN-BERT vs. improved "
+        "GAN-BERT (label smoothing + Pi-model consistency regularization, and a "
+        "corrected learning rate for SciCite); (3) in-domain vs. cross-dataset "
+        "unlabeled data for the GAN discriminator's real/fake stream.\n",
+        f"**Best overall result:** {best_f1_row['model']} / {best_f1_row['dataset']} / "
+        f"{best_f1_row['variant']} -- F1-macro={best_f1_row['f1_macro']:.4f}, "
+        f"accuracy={best_f1_row['accuracy']:.4f}\n",
         "## F1-macro\n",
         pivot_f1.to_markdown(),
         "\n## Accuracy\n",

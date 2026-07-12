@@ -1,28 +1,64 @@
 dataset,model,variant,accuracy,f1_macro
-3C,SciBERT,No-GAN baseline,0.6293,0.4001
-3C,SPECTER2,No-GAN baseline,0.624,0.3967
-3C,XLNet,No-GAN baseline,0.584,0.3605
-ACL-ARC,SciBERT,No-GAN baseline,0.7842,0.6852
-ACL-ARC,SPECTER2,No-GAN baseline,0.7842,0.6677
-ACL-ARC,XLNet,No-GAN baseline,0.7698,0.6915
-SciCite,SciBERT,No-GAN baseline,0.849,0.8372
-SciCite,SPECTER2,No-GAN baseline,0.8501,0.8392
-SciCite,XLNet,No-GAN baseline,0.8297,0.8139
-3C,SciBERT,GAN-BERT (vanilla),0.608,0.4139
-3C,SPECTER2,GAN-BERT (vanilla),0.608,0.4232
-3C,XLNet,GAN-BERT (vanilla),0.5893,0.3813
-ACL-ARC,SciBERT,GAN-BERT (vanilla),0.7914,0.6884
-ACL-ARC,SPECTER2,GAN-BERT (vanilla),0.7914,0.7148
-ACL-ARC,XLNet,GAN-BERT (vanilla),0.7482,0.637
-SciCite,SciBERT,GAN-BERT (vanilla),0.7614,0.5444
-SciCite,SPECTER2,GAN-BERT (vanilla),0.5368,0.2349
-SciCite,XLNet,GAN-BERT (vanilla),0.6244,0.3966
-3C,SciBERT,GAN-BERT (improved),0.616,0.4079
-3C,SPECTER2,GAN-BERT (improved),0.6293,0.4297
-3C,XLNet,GAN-BERT (improved),0.6293,0.3848
-ACL-ARC,SciBERT,GAN-BERT (improved),0.8058,0.7292
-ACL-ARC,SPECTER2,GAN-BERT (improved),0.7914,0.6672
-ACL-ARC,XLNet,GAN-BERT (improved),0.7626,0.6625
-SciCite,SciBERT,GAN-BERT (improved),0.8533,0.8381
-SciCite,SPECTER2,GAN-BERT (improved),0.8517,0.8393
-SciCite,XLNet,GAN-BERT (improved),0.8313,0.8108
+3C,SciBERT,No-GAN baseline (partial),0.6293,0.4001
+3C,SPECTER2,No-GAN baseline (partial),0.624,0.3967
+3C,XLNet,No-GAN baseline (partial),0.584,0.3605
+ACL-ARC,SciBERT,No-GAN baseline (partial),0.7842,0.6852
+ACL-ARC,SPECTER2,No-GAN baseline (partial),0.7842,0.6677
+ACL-ARC,XLNet,No-GAN baseline (partial),0.7698,0.6915
+SciCite,SciBERT,No-GAN baseline (partial),0.849,0.8372
+SciCite,SPECTER2,No-GAN baseline (partial),0.8501,0.8392
+SciCite,XLNet,No-GAN baseline (partial),0.8297,0.8139
+3C,SciBERT,No-GAN baseline (full),0.6693,0.4446
+3C,SPECTER2,No-GAN baseline (full),0.6107,0.4012
+3C,XLNet,No-GAN baseline (full),0.6053,0.416
+ACL-ARC,SciBERT,No-GAN baseline (full),0.8058,0.7826
+ACL-ARC,SPECTER2,No-GAN baseline (full),0.8129,0.7422
+ACL-ARC,XLNet,No-GAN baseline (full),0.7626,0.6456
+SciCite,SciBERT,No-GAN baseline (full),0.8366,0.8213
+SciCite,SPECTER2,No-GAN baseline (full),0.8544,0.8419
+SciCite,XLNet,No-GAN baseline (full),0.8469,0.8313
+3C,SciBERT,GAN-BERT vanilla (partial),0.608,0.4139
+3C,SPECTER2,GAN-BERT vanilla (partial),0.608,0.4232
+3C,XLNet,GAN-BERT vanilla (partial),0.5893,0.3813
+ACL-ARC,SciBERT,GAN-BERT vanilla (partial),0.7914,0.6884
+ACL-ARC,SPECTER2,GAN-BERT vanilla (partial),0.7914,0.7148
+ACL-ARC,XLNet,GAN-BERT vanilla (partial),0.7482,0.637
+SciCite,SciBERT,GAN-BERT vanilla (partial),0.7614,0.5444
+SciCite,SPECTER2,GAN-BERT vanilla (partial),0.5368,0.2349
+SciCite,XLNet,GAN-BERT vanilla (partial),0.6244,0.3966
+3C,SciBERT,GAN-BERT vanilla (full),0.5947,0.3644
+3C,SPECTER2,GAN-BERT vanilla (full),0.576,0.4027
+3C,XLNet,GAN-BERT vanilla (full),0.5387,0.3552
+ACL-ARC,SciBERT,GAN-BERT vanilla (full),0.8201,0.7266
+ACL-ARC,SPECTER2,GAN-BERT vanilla (full),0.7914,0.6968
+ACL-ARC,XLNet,GAN-BERT vanilla (full),0.8129,0.7362
+SciCite,SciBERT,GAN-BERT vanilla (full),0.8909,0.8814
+SciCite,SPECTER2,GAN-BERT vanilla (full),0.8802,0.8667
+SciCite,XLNet,GAN-BERT vanilla (full),0.849,0.8241
+3C,SciBERT,GAN-BERT improved (partial),0.616,0.4079
+3C,SPECTER2,GAN-BERT improved (partial),0.6293,0.4297
+3C,XLNet,GAN-BERT improved (partial),0.6293,0.3848
+ACL-ARC,SciBERT,GAN-BERT improved (partial),0.8058,0.7292
+ACL-ARC,SPECTER2,GAN-BERT improved (partial),0.7914,0.6672
+ACL-ARC,XLNet,GAN-BERT improved (partial),0.7626,0.6625
+SciCite,SciBERT,GAN-BERT improved (partial),0.8533,0.8381
+SciCite,SPECTER2,GAN-BERT improved (partial),0.8517,0.8393
+SciCite,XLNet,GAN-BERT improved (partial),0.8313,0.8108
+3C,SciBERT,GAN-BERT improved (full),0.6267,0.4108
+3C,SPECTER2,GAN-BERT improved (full),0.5787,0.3824
+3C,XLNet,GAN-BERT improved (full),0.5333,0.3454
+ACL-ARC,SciBERT,GAN-BERT improved (full),0.777,0.6364
+ACL-ARC,SPECTER2,GAN-BERT improved (full),0.8129,0.7361
+ACL-ARC,XLNet,GAN-BERT improved (full),0.7986,0.7013
+SciCite,SciBERT,GAN-BERT improved (full),0.8904,0.8801
+SciCite,SPECTER2,GAN-BERT improved (full),0.8802,0.8678
+SciCite,XLNet,GAN-BERT improved (full),0.8415,0.812
+3C,SciBERT,"GAN-BERT improved (partial, cross-dataset unlabeled)",0.6107,0.4022
+3C,SPECTER2,"GAN-BERT improved (partial, cross-dataset unlabeled)",0.6293,0.3953
+3C,XLNet,"GAN-BERT improved (partial, cross-dataset unlabeled)",0.584,0.3637
+ACL-ARC,SciBERT,"GAN-BERT improved (partial, cross-dataset unlabeled)",0.777,0.6999
+ACL-ARC,SPECTER2,"GAN-BERT improved (partial, cross-dataset unlabeled)",0.7842,0.6921
+ACL-ARC,XLNet,"GAN-BERT improved (partial, cross-dataset unlabeled)",0.7554,0.6122
+SciCite,SciBERT,"GAN-BERT improved (partial, cross-dataset unlabeled)",0.8469,0.833
+SciCite,SPECTER2,"GAN-BERT improved (partial, cross-dataset unlabeled)",0.8538,0.84
+SciCite,XLNet,"GAN-BERT improved (partial, cross-dataset unlabeled)",0.8479,0.8323
