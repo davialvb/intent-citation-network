@@ -17,8 +17,10 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 GAN_BERT_SRC="$REPO_ROOT/src/gan_bert_src"
-RESULTS_ROOT="$REPO_ROOT/results/gan_bert"
+RESULTS_DIR_NAME="${RESULTS_DIR_NAME:-gan_bert}"
+RESULTS_ROOT="$REPO_ROOT/results/$RESULTS_DIR_NAME"
 LOG_DIR="$RESULTS_ROOT/logs"
+NUM_TRAINABLE_LAYERS="${NUM_TRAINABLE_LAYERS:-2}"
 
 mkdir -p "$LOG_DIR"
 
@@ -85,7 +87,7 @@ run_one() {
       --lr_d "${DATASET_LR_D[$dataset]}" \
       --lr_g "${DATASET_LR_G[$dataset]}" \
       --epsilon 2e-7 \
-      --num_trainable_layers 2 \
+      --num_trainable_layers "$NUM_TRAINABLE_LAYERS" \
       --dataset_name "$dataset" \
       --seed 42
   ) > "$log_file" 2>&1

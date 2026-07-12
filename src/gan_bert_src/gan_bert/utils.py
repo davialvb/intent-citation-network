@@ -91,17 +91,25 @@ def freeze_transformer_layers(transformer: Any, num_trainable_layers: int) -> Di
     encoder blocks (+ pooler, if present).
 
     Supports BERT-like models (`transformer.encoder.layer`, e.g. SciBERT,
-    SPECTER2) and XLNet (`transformer.layer`).
+    SPECTER2) and XLNet (`transformer.layer`). If `num_trainable_layers` is
+    >= the total number of encoder blocks, this is a full fine-tune: nothing
+    is frozen, including embeddings (matches the reference paper's setup).
     """
-    for p in transformer.parameters():
-        p.requires_grad = False
-
     if hasattr(transformer, "encoder") and hasattr(transformer.encoder, "layer"):
         layers = transformer.encoder.layer
     elif hasattr(transformer, "layer"):
         layers = transformer.layer
     else:
         raise ValueError(f"Don't know how to locate encoder layers on {type(transformer).__name__}")
+
+    if num_trainable_layers >= len(layers):
+        for p in transformer.parameters():
+            p.requires_grad = True
+        trainable = sum(p.numel() for p in transformer.parameters())
+        return {"trainable_params": trainable, "frozen_params": 0}
+
+    for p in transformer.parameters():
+        p.requires_grad = False
 
     for layer in layers[-num_trainable_layers:]:
         for p in layer.parameters():

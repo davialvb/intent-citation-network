@@ -10,10 +10,20 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 GAN_BERT_SRC="$REPO_ROOT/src/gan_bert_src"
-RESULTS_ROOT="$REPO_ROOT/results/gan_bert_improved"
+RESULTS_DIR_NAME="${RESULTS_DIR_NAME:-gan_bert_improved}"
+RESULTS_ROOT="$REPO_ROOT/results/$RESULTS_DIR_NAME"
 LOG_DIR="$RESULTS_ROOT/logs"
 LABEL_SMOOTHING="${LABEL_SMOOTHING:-0.1}"
 CONSISTENCY_WEIGHT="${CONSISTENCY_WEIGHT:-1.0}"
+NUM_TRAINABLE_LAYERS="${NUM_TRAINABLE_LAYERS:-2}"
+# SciCite's LR was raised from the paper's full-fine-tune value (2e-7) to 2e-5
+# to compensate for the last-2-layers partial fine-tuning regime (see note
+# below). When doing a full fine-tune (NUM_TRAINABLE_LAYERS >= 12), pass
+# SCICITE_LR=2e-7 to restore the paper-tuned value for that regime.
+SCICITE_LR="${SCICITE_LR:-2e-5}"
+# Optional: point --unlabeled_csv at a different file (e.g. a cross-dataset
+# unlabeled pool) instead of each dataset's own unsupervised.csv.
+UNLABELED_FILENAME="${UNLABELED_FILENAME:-unsupervised.csv}"
 
 mkdir -p "$LOG_DIR"
 
@@ -37,8 +47,14 @@ declare -A DATASET_HG=(      [scicite]=1   [acl-arc]=2   [3C]=2   )
 declare -A DATASET_HD=(      [scicite]=1   [acl-arc]=1   [3C]=1   )
 declare -A DATASET_NOISE=(   [scicite]=768 [acl-arc]=100 [3C]=100 )
 declare -A DATASET_DROPOUT=( [scicite]=0.20 [acl-arc]=0.10 [3C]=0.10 )
-declare -A DATASET_LR_D=(    [scicite]=2e-7 [acl-arc]=5e-5 [3C]=5e-5 )
-declare -A DATASET_LR_G=(    [scicite]=2e-7 [acl-arc]=5e-4 [3C]=5e-4 )
+# NOTE: SciCite's LR is raised vs. the vanilla run (2e-7 -> 2e-5). That 2e-7
+# value came from the original paper's *full* fine-tuning setup (~110M
+# trainable params); with only the last 2 layers unfrozen here (~15M params)
+# it was too small to move the classifier head off the majority-class optimum
+# (verified: SPECTER2/SciCite collapsed with 2e-7, reached F1=0.836 with 2e-5).
+# ACL-ARC/3C already used a higher LR in the vanilla run, so they're unchanged.
+declare -A DATASET_LR_D=(    [scicite]=$SCICITE_LR [acl-arc]=5e-5 [3C]=5e-5 )
+declare -A DATASET_LR_G=(    [scicite]=$SCICITE_LR [acl-arc]=5e-4 [3C]=5e-4 )
 declare -A DATASET_EPOCHS=(  [scicite]=20  [acl-arc]=30  [3C]=30  )
 
 run_one() {
@@ -56,7 +72,7 @@ run_one() {
     cd "$GAN_BERT_SRC"
     CUDA_VISIBLE_DEVICES="$gpu" uv run --project "$REPO_ROOT" python cli_train.py \
       --labeled_csv "$data_dir/labeled_train.csv" \
-      --unlabeled_csv "$data_dir/unsupervised.csv" \
+      --unlabeled_csv "$data_dir/$UNLABELED_FILENAME" \
       --val_csv "$data_dir/val.csv" \
       --test_csv "$data_dir/test.csv" \
       --labels $labels \
@@ -72,7 +88,7 @@ run_one() {
       --lr_d "${DATASET_LR_D[$dataset]}" \
       --lr_g "${DATASET_LR_G[$dataset]}" \
       --epsilon 2e-7 \
-      --num_trainable_layers 2 \
+      --num_trainable_layers "$NUM_TRAINABLE_LAYERS" \
       --label_smoothing "$LABEL_SMOOTHING" \
       --consistency_weight "$CONSISTENCY_WEIGHT" \
       --dataset_name "$dataset" \

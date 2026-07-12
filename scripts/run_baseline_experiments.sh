@@ -7,8 +7,10 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 GAN_BERT_SRC="$REPO_ROOT/src/gan_bert_src"
-RESULTS_ROOT="$REPO_ROOT/results/baseline"
+RESULTS_DIR_NAME="${RESULTS_DIR_NAME:-baseline}"
+RESULTS_ROOT="$REPO_ROOT/results/$RESULTS_DIR_NAME"
 LOG_DIR="$RESULTS_ROOT/logs"
+NUM_TRAINABLE_LAYERS="${NUM_TRAINABLE_LAYERS:-2}"
 
 mkdir -p "$LOG_DIR"
 
@@ -54,7 +56,7 @@ run_one() {
       --max_seq_length "${DATASET_MAX_SEQ[$dataset]}" \
       --batch_size "${DATASET_BATCH[$dataset]}" \
       --lr 2e-5 \
-      --num_trainable_layers 2 \
+      --num_trainable_layers "$NUM_TRAINABLE_LAYERS" \
       --dataset_name "$dataset" \
       --seed 42
   ) > "$log_file" 2>&1
