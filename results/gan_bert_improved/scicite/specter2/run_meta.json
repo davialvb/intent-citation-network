@@ -1,12 +1,12 @@
 {
-  "best_epoch": 2,
-  "best_val_f1_macro": 0.3681936163244031,
+  "best_epoch": 19,
+  "best_val_f1_macro": 0.8363849064117881,
   "consistency_weight": 1.0,
   "dataset_name": "scicite",
   "device": "cuda:0",
-  "finished_at": "2026-07-11T21:26:03.907099+00:00",
+  "finished_at": "2026-07-11T23:08:04.165379+00:00",
   "frozen_transformer_params": 95152128,
-  "git_commit": "ff690473f2816954a48179d9b69d821389346c5d",
+  "git_commit": "1a495bf04e5c51306fcc6e36686368aba1ba594d",
   "gpu_name": "NVIDIA RTX 5000 Ada Generation",
   "label_smoothing": 0.1,
   "labels": [
@@ -23,7 +23,7 @@
   "num_labels": 3,
   "num_trainable_layers": 2,
   "seed": 42,
-  "started_at": "2026-07-11T21:18:58.746167+00:00",
+  "started_at": "2026-07-11T23:00:55.327050+00:00",
   "trainable_transformer_params": 14766336,
-  "wall_clock_seconds": 425.1638584136963
+  "wall_clock_seconds": 428.8410019874573
 }

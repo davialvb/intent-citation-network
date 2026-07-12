@@ -1,0 +1,14 @@
+{
+  "batch_size": 32,
+  "epochs": 20,
+  "labels": [
+    "background",
+    "method",
+    "result"
+  ],
+  "lr": 2e-05,
+  "max_seq_length": 160,
+  "model_name": "allenai/specter2_base",
+  "num_labels": 3,
+  "num_trainable_layers": 12
+}
