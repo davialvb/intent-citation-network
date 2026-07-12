@@ -25,6 +25,10 @@ class GanBertConfig:
     # partial fine-tuning of the transformer encoder
     num_trainable_layers: int = 2
 
+    # optional section-of-paper feature (concatenated embedding)
+    use_section_feature: bool = False
+    section_embed_dim: int = 16
+
     # optimization
     learning_rate_generator: float = 2e-7
     learning_rate_discriminator: float = 2e-7

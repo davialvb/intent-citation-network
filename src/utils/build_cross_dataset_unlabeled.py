@@ -30,20 +30,20 @@ def main() -> None:
     p.add_argument("--n_per_source", type=int, default=300, help="Rows sampled from each *other* dataset.")
     args = p.parse_args()
 
-    train_texts = {}
+    train_data = {}
     for ds in DATASETS:
         df = pd.read_csv(DATA_ROOT / ds / "gan_bert" / "labeled_train.csv")
-        train_texts[ds] = df["text"]
+        train_data[ds] = df[["text", "section"]]
 
     for ds in DATASETS:
         own_unsup = pd.read_csv(DATA_ROOT / ds / "gan_bert" / "unsupervised.csv")
-        cross_parts = [own_unsup[["text"]]]
+        cross_parts = [own_unsup[["text", "section"]]]
         for other in DATASETS:
             if other == ds:
                 continue
-            n = min(args.n_per_source, len(train_texts[other]))
-            sample = train_texts[other].sample(n=n, random_state=args.seed)
-            cross_parts.append(pd.DataFrame({"text": sample.values}))
+            n = min(args.n_per_source, len(train_data[other]))
+            sample = train_data[other].sample(n=n, random_state=args.seed)
+            cross_parts.append(sample)
 
         combined = pd.concat(cross_parts, ignore_index=True)
         out_path = DATA_ROOT / ds / "gan_bert" / "unsupervised_cross.csv"

@@ -11,10 +11,19 @@ from .losses import consistency_loss, discriminator_loss, generator_loss, get_cg
 from .utils import format_time, get_transformer_representation
 
 
+def _augment_with_section(rep: torch.Tensor, batch: dict, section_embed, device: torch.device) -> torch.Tensor:
+    if section_embed is None:
+        return rep
+    section_ids = batch["section_id"].to(device)
+    return torch.cat([rep, section_embed(section_ids)], dim=-1)
+
+
 @torch.no_grad()
-def predict(dataloader, transformer, discriminator, device: torch.device):
+def predict(dataloader, transformer, discriminator, device: torch.device, section_embed=None):
     transformer.eval()
     discriminator.eval()
+    if section_embed is not None:
+        section_embed.eval()
 
     all_preds: List[torch.Tensor] = []
     all_labels: List[torch.Tensor] = []
@@ -28,6 +37,7 @@ def predict(dataloader, transformer, discriminator, device: torch.device):
 
         outputs = transformer(input_ids, attention_mask=attn_mask)
         rep = get_transformer_representation(outputs, attention_mask=attn_mask)
+        rep = _augment_with_section(rep, batch, section_embed, device)
 
         _, logits, _ = discriminator(rep)
         filtered_logits = logits[:, 0:-1]
@@ -42,9 +52,11 @@ def predict(dataloader, transformer, discriminator, device: torch.device):
 
 
 @torch.no_grad()
-def evaluate(dataloader, transformer, discriminator, device: torch.device, verbose: bool = True):
+def evaluate(dataloader, transformer, discriminator, device: torch.device, verbose: bool = True, section_embed=None):
     transformer.eval()
     discriminator.eval()
+    if section_embed is not None:
+        section_embed.eval()
 
     nll_loss = torch.nn.CrossEntropyLoss(ignore_index=-1)
 
@@ -59,6 +71,7 @@ def evaluate(dataloader, transformer, discriminator, device: torch.device, verbo
 
         outputs = transformer(input_ids, attention_mask=attn_mask)
         rep = get_transformer_representation(outputs, attention_mask=attn_mask)
+        rep = _augment_with_section(rep, batch, section_embed, device)
 
         _, logits, _ = discriminator(rep)
         filtered_logits = logits[:, 0:-1]
@@ -114,10 +127,13 @@ def train_one_epoch(
     verbose: bool = True,
     label_smoothing: float = 0.0,
     consistency_weight: float = 0.0,
+    section_embed=None,
 ):
     transformer.train()
     generator.train()
     discriminator.train()
+    if section_embed is not None:
+        section_embed.train()
 
     tr_g_loss = 0.0
     tr_d_loss = 0.0
@@ -137,6 +153,7 @@ def train_one_epoch(
 
         outputs = transformer(input_ids, attention_mask=attn_mask)
         real_rep = get_transformer_representation(outputs, attention_mask=attn_mask)
+        real_rep = _augment_with_section(real_rep, batch, section_embed, device)
 
         noise, cond_labels = get_cgan_input(real_batch_size, noise_size, labels, device=device)
         fake_rep = generator(noise, cond_labels)

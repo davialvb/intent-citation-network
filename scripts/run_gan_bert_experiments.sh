@@ -21,6 +21,12 @@ RESULTS_DIR_NAME="${RESULTS_DIR_NAME:-gan_bert}"
 RESULTS_ROOT="$REPO_ROOT/results/$RESULTS_DIR_NAME"
 LOG_DIR="$RESULTS_ROOT/logs"
 NUM_TRAINABLE_LAYERS="${NUM_TRAINABLE_LAYERS:-2}"
+USE_SECTION_FEATURE="${USE_SECTION_FEATURE:-0}"
+SECTION_EMBED_DIM="${SECTION_EMBED_DIM:-16}"
+SECTION_FLAG=""
+if [ "$USE_SECTION_FEATURE" = "1" ]; then
+  SECTION_FLAG="--use_section_feature --section_embed_dim $SECTION_EMBED_DIM"
+fi
 
 mkdir -p "$LOG_DIR"
 
@@ -88,6 +94,7 @@ run_one() {
       --lr_g "${DATASET_LR_G[$dataset]}" \
       --epsilon 2e-7 \
       --num_trainable_layers "$NUM_TRAINABLE_LAYERS" \
+      $SECTION_FLAG \
       --dataset_name "$dataset" \
       --seed 42
   ) > "$log_file" 2>&1

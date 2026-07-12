@@ -62,3 +62,12 @@ ACL-ARC,XLNet,"GAN-BERT improved (partial, cross-dataset unlabeled)",0.7554,0.61
 SciCite,SciBERT,"GAN-BERT improved (partial, cross-dataset unlabeled)",0.8469,0.833
 SciCite,SPECTER2,"GAN-BERT improved (partial, cross-dataset unlabeled)",0.8538,0.84
 SciCite,XLNet,"GAN-BERT improved (partial, cross-dataset unlabeled)",0.8479,0.8323
+3C,SciBERT,"GAN-BERT vanilla (full, + section feature)",0.5973,0.388
+3C,SPECTER2,"GAN-BERT vanilla (full, + section feature)",0.5547,0.3816
+3C,XLNet,"GAN-BERT vanilla (full, + section feature)",0.568,0.3918
+ACL-ARC,SciBERT,"GAN-BERT vanilla (full, + section feature)",0.7266,0.5844
+ACL-ARC,SPECTER2,"GAN-BERT vanilla (full, + section feature)",0.8058,0.7289
+ACL-ARC,XLNet,"GAN-BERT vanilla (full, + section feature)",0.7626,0.6578
+SciCite,SciBERT,"GAN-BERT vanilla (full, + section feature)",0.8823,0.8698
+SciCite,SPECTER2,"GAN-BERT vanilla (full, + section feature)",0.871,0.8604
+SciCite,XLNet,"GAN-BERT vanilla (full, + section feature)",0.8544,0.8334

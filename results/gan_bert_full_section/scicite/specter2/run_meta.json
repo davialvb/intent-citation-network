@@ -1,0 +1,41 @@
+{
+  "best_epoch": 20,
+  "best_val_f1_macro": 0.8347757922945892,
+  "consistency_weight": 0.0,
+  "dataset_name": "scicite",
+  "device": "cuda:0",
+  "finished_at": "2026-07-12T04:46:38.867472+00:00",
+  "frozen_transformer_params": 0,
+  "git_commit": "1d79e7d56eef1c2d86c6d3ad9bde7fd32f1134f8",
+  "gpu_name": "NVIDIA RTX 5000 Ada Generation",
+  "label_smoothing": 0.0,
+  "labels": [
+    "background",
+    "method",
+    "result",
+    "unknown"
+  ],
+  "model_name": "allenai/specter2_base",
+  "n_test": 1861,
+  "n_train_labeled": 8243,
+  "n_train_unlabeled": 92,
+  "n_val": 824,
+  "num_labels": 3,
+  "num_trainable_layers": 12,
+  "section_embed_dim": 16,
+  "section_vocab": [
+    "introduction",
+    "background",
+    "related_work",
+    "methods",
+    "results",
+    "discussion",
+    "conclusion",
+    "unknown"
+  ],
+  "seed": 42,
+  "started_at": "2026-07-12T04:27:18.845207+00:00",
+  "trainable_transformer_params": 109918464,
+  "use_section_feature": true,
+  "wall_clock_seconds": 1160.024789571762
+}

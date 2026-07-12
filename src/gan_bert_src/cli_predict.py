@@ -15,16 +15,38 @@ from pathlib import Path
 
 import pandas as pd
 import torch
+import torch.nn as nn
 from transformers import AutoConfig, AutoModel, AutoTokenizer
 
 from gan_bert.models import Discriminator
 from gan_bert.utils import get_device, get_transformer_representation
 
+# Must match src/utils/gan_bert_preprocessing.py's SECTION_VOCAB.
+SECTION_VOCAB = [
+    "introduction",
+    "background",
+    "related_work",
+    "methods",
+    "results",
+    "discussion",
+    "conclusion",
+    "unknown",
+]
+_SECTION_ALIASES = {"experiments": "results", "experiment": "results", "method": "methods", "methodology": "methods"}
 
-def _best_checkpoint(run_dir: Path, subdir: str) -> Path:
-    candidates = glob.glob(str(run_dir / subdir / "*.pth"))
+
+def normalize_section_clean(raw: object) -> str:
+    if raw is None or (isinstance(raw, float)) or not str(raw).strip():
+        return "unknown"
+    s = str(raw).strip().lower()
+    s = _SECTION_ALIASES.get(s, s)
+    return s if s in SECTION_VOCAB else "unknown"
+
+
+def _best_checkpoint(run_dir: Path, subdir: str, prefix: str) -> Path:
+    candidates = [c for c in glob.glob(str(run_dir / subdir / "*.pth")) if Path(c).name.startswith(prefix)]
     if not candidates:
-        raise FileNotFoundError(f"No checkpoints found in {run_dir / subdir}")
+        raise FileNotFoundError(f"No '{prefix}*' checkpoints found in {run_dir / subdir}")
 
     def f1_of(path: str) -> float:
         m = re.search(r"f1_([0-9.]+)\.pth$", path)
@@ -41,15 +63,17 @@ def main():
     p.add_argument("--text_col", default="citation_text")
     p.add_argument("--pred_col", default="predicted_intent")
     p.add_argument("--labels", nargs="+", required=True, help="Real class labels, in the same order used for training (no trailing 'unknown').")
+    p.add_argument("--section_col", default=None, help="Column with the citation's paper section (e.g. 'chapter'). Required if the model was trained with --use_section_feature.")
     p.add_argument("--no_cuda", action="store_true")
     args = p.parse_args()
 
     run_dir = Path(args.run_dir)
     cfg = json.loads((run_dir / "config.json").read_text())
     device = get_device(prefer_cuda=not args.no_cuda)
+    use_section_feature = bool(cfg.get("use_section_feature"))
 
-    transformer_ckpt = _best_checkpoint(run_dir, "transformer")
-    discriminator_ckpt = _best_checkpoint(run_dir, "discriminator")
+    transformer_ckpt = _best_checkpoint(run_dir, "transformer", prefix="transformer_")
+    discriminator_ckpt = _best_checkpoint(run_dir, "discriminator", prefix="discriminator_")
     print(f"Loading transformer checkpoint: {transformer_ckpt.name}")
     print(f"Loading discriminator checkpoint: {discriminator_ckpt.name}")
 
@@ -59,9 +83,23 @@ def main():
     transformer.load_state_dict(torch.load(transformer_ckpt, map_location="cpu"))
 
     hidden_size = int(model_config.hidden_size)
+    combined_size = hidden_size
+
+    section_embed = None
+    if use_section_feature:
+        if not args.section_col:
+            raise SystemExit("This model was trained with --use_section_feature; pass --section_col.")
+        section_embed_dim = cfg["section_embed_dim"]
+        section_embed = nn.Embedding(len(SECTION_VOCAB), section_embed_dim)
+        section_embed_ckpt = _best_checkpoint(run_dir, "discriminator", prefix="section_embed_")
+        print(f"Loading section embedding checkpoint: {section_embed_ckpt.name}")
+        section_embed.load_state_dict(torch.load(section_embed_ckpt, map_location="cpu"))
+        section_embed.to(device).eval()
+        combined_size = hidden_size + section_embed_dim
+
     hidden_levels_d = [hidden_size for _ in range(cfg["num_hidden_layers_d"])]
     discriminator = Discriminator(
-        input_size=hidden_size,
+        input_size=combined_size,
         hidden_sizes=hidden_levels_d,
         num_labels=cfg["num_labels"],
         dropout_rate=cfg["out_dropout_rate"],
@@ -74,6 +112,10 @@ def main():
 
     df = pd.read_csv(args.input_csv)
     texts = df[args.text_col].astype(str).tolist()
+    section_ids = None
+    if use_section_feature:
+        section_map = {s: i for i, s in enumerate(SECTION_VOCAB)}
+        section_ids = df[args.section_col].map(normalize_section_clean).map(section_map).tolist()
 
     preds = []
     confidences = []
@@ -93,6 +135,9 @@ def main():
 
             outputs = transformer(input_ids, attention_mask=attn_mask)
             rep = get_transformer_representation(outputs, attention_mask=attn_mask)
+            if section_embed is not None:
+                batch_section_ids = torch.tensor(section_ids[i : i + batch_size], dtype=torch.long, device=device)
+                rep = torch.cat([rep, section_embed(batch_section_ids)], dim=-1)
             _, logits, probs = discriminator(rep)
             filtered_logits = logits[:, 0 : cfg["num_labels"]]
             filtered_probs = torch.softmax(filtered_logits, dim=-1)

@@ -24,6 +24,7 @@ VARIANTS = {
     "gan_bert_improved": "GAN-BERT improved (partial)",
     "gan_bert_improved_full": "GAN-BERT improved (full)",
     "gan_bert_improved_cross": "GAN-BERT improved (partial, cross-dataset unlabeled)",
+    "gan_bert_full_section": "GAN-BERT vanilla (full, + section feature)",
 }
 
 
@@ -73,7 +74,13 @@ def main() -> None:
         "vs. full fine-tuning; (2) no-GAN baseline vs. vanilla GAN-BERT vs. improved "
         "GAN-BERT (label smoothing + Pi-model consistency regularization, and a "
         "corrected learning rate for SciCite); (3) in-domain vs. cross-dataset "
-        "unlabeled data for the GAN discriminator's real/fake stream.\n",
+        "unlabeled data for the GAN discriminator's real/fake stream; (4) with vs. "
+        "without a learned paper-section embedding (Introduction/Methods/Results/etc., "
+        "normalized from each dataset's raw section metadata) concatenated to the "
+        "representation before the discriminator/generator. The section feature did "
+        "not yield a net improvement (mean F1-macro across all 9 dataset/model "
+        "combinations: 0.6504 without vs. 0.6329 with), so it was not adopted for the "
+        "final/best model.\n",
         f"**Best overall result:** {best_f1_row['model']} / {best_f1_row['dataset']} / "
         f"{best_f1_row['variant']} -- F1-macro={best_f1_row['f1_macro']:.4f}, "
         f"accuracy={best_f1_row['accuracy']:.4f}\n",

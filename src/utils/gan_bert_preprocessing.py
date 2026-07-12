@@ -24,12 +24,85 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
 
 import pandas as pd
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DATA_ROOT = REPO_ROOT / "data"
+
+# Canonical section vocabulary shared across all three datasets, following the
+# standard IMRaD-style discourse categories used in citation-context /
+# section-scaffold literature (e.g. Cohan et al. 2019's SciCite section-title
+# scaffold task). "unknown" covers missing values and datasets that don't
+# provide section metadata at all (3C).
+SECTION_VOCAB = [
+    "introduction",
+    "background",
+    "related_work",
+    "methods",
+    "results",
+    "discussion",
+    "conclusion",
+    "unknown",
+]
+
+_NUMBERING_RE = re.compile(r"^\s*\d+(\.\d+)*\.?\s*")
+
+
+def normalize_section_free_text(raw: object) -> str:
+    """Normalize a free-text section heading (e.g. SciCite's `sectionName`,
+    which has 1000+ raw variants like "4. Discussion", "RESULTS AND DISCUSSION",
+    "1. INTRODUCTION") into one of SECTION_VOCAB via numbering-stripping,
+    lowercasing, and keyword matching. Order matters: more specific / composite
+    headings are matched before their component keywords.
+    """
+    if raw is None or (isinstance(raw, float)) or not str(raw).strip():
+        return "unknown"
+    s = _NUMBERING_RE.sub("", str(raw)).strip().lower()
+    if not s:
+        return "unknown"
+
+    if "related work" in s or "literature review" in s or "prior work" in s:
+        return "related_work"
+    if "introduction" in s:
+        return "introduction"
+    if "conclusion" in s or "concluding" in s:
+        return "conclusion"
+    if "discussion" in s:
+        return "discussion"
+    if "result" in s or "experiment" in s or "evaluation" in s:
+        return "results"
+    if "method" in s or "approach" in s or "model" in s:
+        return "methods"
+    if "background" in s:
+        return "background"
+    return "unknown"
+
+
+def normalize_section_clean(raw: object) -> str:
+    """Normalize an already-clean, low-cardinality section field (ACL-ARC's
+    `section_name`, or a thesis "chapter" column) into SECTION_VOCAB.
+    """
+    if raw is None or (isinstance(raw, float)) or not str(raw).strip():
+        return "unknown"
+    s = str(raw).strip().lower()
+    mapping = {
+        "related work": "related_work",
+        "related_work": "related_work",
+        "experiments": "results",
+        "experiment": "results",
+        "method": "methods",
+        "methods": "methods",
+        "methodology": "methods",
+    }
+    if s in mapping:
+        return mapping[s]
+    if s in SECTION_VOCAB:
+        return s
+    return "unknown"
+
 
 # Canonical (lowercased) label sets per dataset, "unknown" always last (used for
 # the unsupervised/unlabeled rows by the GAN-BERT training loop).
@@ -51,11 +124,11 @@ THREEC_LABELS = ["background", "comparecontrast", "extension", "future", "motiva
 def _split_unsupervised(val_df: pd.DataFrame, unsup_frac: float, seed: int) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Randomly sample `unsup_frac` of val_df to become the stripped unsupervised set.
 
-    Returns (remaining_val_df, unsupervised_df[text only]).
+    Returns (remaining_val_df, unsupervised_df[text, section]).
     """
     unsup = val_df.sample(frac=unsup_frac, random_state=seed)
     remaining_val = val_df.drop(index=unsup.index).reset_index(drop=True)
-    unsupervised = unsup[["text"]].reset_index(drop=True)
+    unsupervised = unsup[["text", "section"]].reset_index(drop=True)
     return remaining_val, unsupervised
 
 
@@ -70,13 +143,14 @@ def _write_outputs(
     unsup_frac: float,
 ) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
-    labeled[["text", "intent"]].to_csv(out_dir / "labeled_train.csv", index=False)
-    val[["text", "intent"]].to_csv(out_dir / "val.csv", index=False)
-    unsupervised[["text"]].to_csv(out_dir / "unsupervised.csv", index=False)
-    test[["text", "intent"]].to_csv(out_dir / "test.csv", index=False)
+    labeled[["text", "intent", "section"]].to_csv(out_dir / "labeled_train.csv", index=False)
+    val[["text", "intent", "section"]].to_csv(out_dir / "val.csv", index=False)
+    unsupervised[["text", "section"]].to_csv(out_dir / "unsupervised.csv", index=False)
+    test[["text", "intent", "section"]].to_csv(out_dir / "test.csv", index=False)
 
     metadata = {
         "labels": labels,
+        "section_vocab": SECTION_VOCAB,
         "seed": seed,
         "unsup_frac": unsup_frac,
         "n_labeled_train": len(labeled),
@@ -86,6 +160,7 @@ def _write_outputs(
         "label_counts_train": labeled["intent"].value_counts().to_dict(),
         "label_counts_val": val["intent"].value_counts().to_dict(),
         "label_counts_test": test["intent"].value_counts().to_dict(),
+        "section_counts_train": labeled["section"].value_counts().to_dict(),
     }
     with (out_dir / "metadata.json").open("w", encoding="utf-8") as f:
         json.dump(metadata, f, indent=2, sort_keys=True)
@@ -101,15 +176,16 @@ def build_scicite(seed: int, unsup_frac: float) -> None:
 
     for df in (train, dev, test):
         df.rename(columns={"string": "text", "label": "intent"}, inplace=True)
+        df["section"] = df["sectionName"].map(normalize_section_free_text)
 
-    val, unsupervised = _split_unsupervised(dev[["text", "intent"]], unsup_frac, seed)
+    val, unsupervised = _split_unsupervised(dev[["text", "intent", "section"]], unsup_frac, seed)
 
     _write_outputs(
         DATA_ROOT / "scicite" / "gan_bert",
-        train[["text", "intent"]],
+        train[["text", "intent", "section"]],
         val,
         unsupervised,
-        test[["text", "intent"]],
+        test[["text", "intent", "section"]],
         SCICITE_LABELS,
         seed,
         unsup_frac,
@@ -123,8 +199,10 @@ def build_acl_arc(seed: int, unsup_frac: float) -> None:
     test = pd.read_json(raw / "test.jsonl", lines=True)
 
     def _norm(df: pd.DataFrame) -> pd.DataFrame:
+        section = df["section_name"].map(normalize_section_clean)
         df = df[["text", "intent"]].copy()
         df["intent"] = df["intent"].str.lower().str.replace(r"[^a-z]", "", regex=True)
+        df["section"] = section
         return df
 
     train, dev, test = _norm(train), _norm(dev), _norm(test)
@@ -150,6 +228,8 @@ def build_3c(seed: int, unsup_frac: float) -> None:
     df.columns = ["text", "intent"]
     df["intent"] = df["intent"].map(THREEC_LABEL_MAP)
     df = df.dropna(subset=["text", "intent"]).reset_index(drop=True)
+    # 3C provides no section metadata at all.
+    df["section"] = "unknown"
 
     # Held-out pool for val+test (25%), rest is supervised train.
     from sklearn.model_selection import train_test_split

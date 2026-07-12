@@ -13,13 +13,28 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
 import torch
+import torch.nn as nn
 from transformers import AutoConfig, AutoModel, get_constant_schedule_with_warmup
 
 from gan_bert.config import GanBertConfig
-from gan_bert.data import label_str2int, make_eval_dataloader, make_train_dataloader
+from gan_bert.data import label_str2int, make_eval_dataloader, make_train_dataloader, section_str2int
 from gan_bert.models import ConditionalGenerator, Discriminator
 from gan_bert.train_eval import evaluate, predict, train_one_epoch
 from gan_bert.utils import SavePaths, freeze_transformer_layers, get_device, save_json, set_seed
+
+# Must match src/utils/gan_bert_preprocessing.py's SECTION_VOCAB (kept as a
+# duplicated constant since that script and this package live in separate,
+# independently-run source trees).
+SECTION_VOCAB = [
+    "introduction",
+    "background",
+    "related_work",
+    "methods",
+    "results",
+    "discussion",
+    "conclusion",
+    "unknown",
+]
 
 
 def parse_args():
@@ -70,6 +85,14 @@ def parse_args():
         help="Weight for Pi-model consistency regularization on the unlabeled stream "
         "(two stochastic discriminator forward passes); 0 = vanilla GAN-BERT.",
     )
+    p.add_argument(
+        "--use_section_feature",
+        action="store_true",
+        help="Concatenate a learned embedding of the citation's paper section (e.g. Introduction, "
+        "Methods, Results) to the transformer representation before the discriminator/generator.",
+    )
+    p.add_argument("--section_col", default="section", help="Column with the normalized section label.")
+    p.add_argument("--section_embed_dim", type=int, default=16)
     p.add_argument("--dataset_name", type=str, default=None, help="Free-text label recorded in run_meta.json.")
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--no_cuda", action="store_true")
@@ -164,6 +187,8 @@ def main():
         cfg.epsilon = args.epsilon
     if args.num_trainable_layers is not None:
         cfg.num_trainable_layers = args.num_trainable_layers
+    cfg.use_section_feature = args.use_section_feature
+    cfg.section_embed_dim = args.section_embed_dim
 
     labeled = pd.read_csv(args.labeled_csv)
     unlabeled = pd.read_csv(args.unlabeled_csv) if args.unlabeled_csv else None
@@ -187,6 +212,16 @@ def main():
     if test is not None:
         test["intent_int"] = test[args.label_col].map(label_map)
 
+    section_train_col = None
+    if args.use_section_feature:
+        section_map = section_str2int(SECTION_VOCAB)
+        unknown_section_id = section_map["unknown"]
+        section_train_col = "section_int"
+        for df in (labeled, val, test, unlabeled):
+            if df is None:
+                continue
+            df[section_train_col] = df[args.section_col].map(section_map).fillna(unknown_section_id).astype(int)
+
     train_loader = make_train_dataloader(
         labeled_examples=labeled,
         unlabeled_examples=unlabeled,
@@ -195,6 +230,7 @@ def main():
         col_text=args.text_col,
         batch_size=cfg.batch_size,
         shuffle=True,
+        section_col=section_train_col,
     )
     val_loader = make_eval_dataloader(
         examples=val,
@@ -203,6 +239,7 @@ def main():
         col_text=args.text_col,
         batch_size=cfg.batch_size,
         shuffle=False,
+        section_col=section_train_col,
     )
 
     # models
@@ -216,17 +253,25 @@ def main():
         f"frozen: {freeze_stats['frozen_params']:,}"
     )
 
+    # When the section feature is enabled, the generator/discriminator operate
+    # on [transformer_rep ; section_embedding] instead of transformer_rep alone.
+    section_embed = None
+    combined_size = cfg.hidden_size
+    if args.use_section_feature:
+        section_embed = nn.Embedding(len(SECTION_VOCAB), args.section_embed_dim).to(device)
+        combined_size = cfg.hidden_size + args.section_embed_dim
+
     hidden_levels_g = [cfg.hidden_size for _ in range(cfg.num_hidden_layers_g)]
     hidden_levels_d = [cfg.hidden_size for _ in range(cfg.num_hidden_layers_d)]
 
     generator = ConditionalGenerator(
         noise_size=cfg.noise_size,
-        output_size=cfg.hidden_size,
+        output_size=combined_size,
         hidden_sizes=hidden_levels_g,
         dropout_rate=cfg.out_dropout_rate,
     )
     discriminator = Discriminator(
-        input_size=cfg.hidden_size,
+        input_size=combined_size,
         hidden_sizes=hidden_levels_d,
         num_labels=cfg.num_labels,
         dropout_rate=cfg.out_dropout_rate,
@@ -240,6 +285,8 @@ def main():
     # optimizers -- only trainable transformer params (frozen layers excluded)
     transformer_trainable_vars = [p for p in transformer.parameters() if p.requires_grad]
     d_vars = transformer_trainable_vars + list(discriminator.parameters())
+    if section_embed is not None:
+        d_vars += list(section_embed.parameters())
     g_vars = list(generator.parameters())
 
     dis_opt = torch.optim.AdamW(d_vars, lr=cfg.learning_rate_discriminator)
@@ -267,6 +314,9 @@ def main():
         "frozen_transformer_params": freeze_stats["frozen_params"],
         "label_smoothing": args.label_smoothing,
         "consistency_weight": args.consistency_weight,
+        "use_section_feature": args.use_section_feature,
+        "section_embed_dim": args.section_embed_dim if args.use_section_feature else None,
+        "section_vocab": SECTION_VOCAB if args.use_section_feature else None,
         "device": str(device),
         "gpu_name": torch.cuda.get_device_name(device) if device.type == "cuda" else None,
         "git_commit": _git_commit_hash(),
@@ -302,13 +352,14 @@ def main():
             verbose=True,
             label_smoothing=args.label_smoothing,
             consistency_weight=args.consistency_weight,
+            section_embed=section_embed,
         )
         print(f"  Avg generator loss: {stats['avg_gen_loss']:.4f}")
         print(f"  Avg discriminator loss: {stats['avg_dis_loss']:.4f}")
         print(f"  Epoch time: {stats['epoch_time']}")
 
         print("\nRunning validation...")
-        val_metrics = evaluate(val_loader, transformer, discriminator, device=device, verbose=True)
+        val_metrics = evaluate(val_loader, transformer, discriminator, device=device, verbose=True, section_embed=section_embed)
 
         history.append(
             {
@@ -328,6 +379,11 @@ def main():
             torch.save(generator.state_dict(), paths.generator_dir / f"generator_epoch{epoch}_f1_{best_f1:.4f}.pth")
             torch.save(discriminator.state_dict(), paths.discriminator_dir / f"discriminator_epoch{epoch}_f1_{best_f1:.4f}.pth")
             torch.save(transformer.state_dict(), paths.transformer_dir / f"transformer_epoch{epoch}_f1_{best_f1:.4f}.pth")
+            if section_embed is not None:
+                torch.save(
+                    section_embed.state_dict(),
+                    paths.discriminator_dir / f"section_embed_epoch{epoch}_f1_{best_f1:.4f}.pth",
+                )
             print(f"Saved best model (epoch={epoch}, f1={best_f1:.4f})")
 
             save_json(
@@ -361,8 +417,9 @@ def main():
             col_text=args.text_col,
             batch_size=cfg.batch_size,
             shuffle=False,
+            section_col=section_train_col,
         )
-        test_metrics = evaluate(test_loader, transformer, discriminator, device=device, verbose=True)
+        test_metrics = evaluate(test_loader, transformer, discriminator, device=device, verbose=True, section_embed=section_embed)
         save_json(
             {
                 "accuracy": test_metrics["accuracy"],
@@ -377,7 +434,7 @@ def main():
             test_metrics["confusion_matrix"], real_labels, paths.root / "confusion_matrix.png", "Test confusion matrix"
         )
 
-        preds, trues, texts = predict(test_loader, transformer, discriminator, device=device)
+        preds, trues, texts = predict(test_loader, transformer, discriminator, device=device, section_embed=section_embed)
         pd.DataFrame({"text": texts, "y_true": trues, "y_pred": preds}).to_csv(
             paths.root / "predictions_test.csv", index=False
         )

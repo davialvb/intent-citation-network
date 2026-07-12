@@ -14,6 +14,10 @@ def label_str2int(label_names: list[str]) -> dict[str, int]:
     return {label: i for i, label in enumerate(label_names)}
 
 
+def section_str2int(section_vocab: list[str]) -> dict[str, int]:
+    return {section: i for i, section in enumerate(section_vocab)}
+
+
 class TextDataset(Dataset):
     """Tokenizes text examples on-the-fly."""
 
@@ -24,12 +28,14 @@ class TextDataset(Dataset):
         labels: Optional[list[int]] = None,
         max_seq_length: int = 160,
         model_name: str = "allenai/scibert_scivocab_uncased",
+        section_ids: Optional[list[int]] = None,
     ):
         self.texts = texts
         self.labels = labels
         self.label_masks = label_masks
         self.max_seq_length = max_seq_length
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        self.section_ids = section_ids
 
     def __len__(self) -> int:
         return len(self.texts)
@@ -55,6 +61,8 @@ class TextDataset(Dataset):
 
         if self.labels is not None:
             item["labels"] = torch.tensor(self.labels[idx], dtype=torch.long)
+        if self.section_ids is not None:
+            item["section_id"] = torch.tensor(self.section_ids[idx], dtype=torch.long)
         return item
 
 
@@ -67,15 +75,19 @@ def make_train_dataloader(
     label_col: str = "intent_int",
     batch_size: int = 32,
     shuffle: bool = True,
+    section_col: Optional[str] = None,
 ) -> DataLoader:
     texts = labeled_examples[col_text].astype(str).tolist()
     labels = labeled_examples[label_col].astype(int).tolist()
+    sections = labeled_examples[section_col].astype(int).tolist() if section_col else None
 
     train_label_masks = np.ones(len(labeled_examples), dtype=bool)
 
     if unlabeled_examples is not None and unlabeled_examples[col_text].notnull().all():
         texts = texts + unlabeled_examples[col_text].astype(str).tolist()
         labels = labels + unlabeled_examples[label_col].astype(int).tolist()
+        if section_col:
+            sections = sections + unlabeled_examples[section_col].astype(int).tolist()
 
         tmp_masks = np.zeros(len(unlabeled_examples), dtype=bool)
         train_label_masks = np.concatenate([train_label_masks, tmp_masks])
@@ -86,6 +98,7 @@ def make_train_dataloader(
         label_masks=train_label_masks,
         max_seq_length=max_seq_length,
         model_name=model_name,
+        section_ids=sections,
     )
     return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
 
@@ -98,9 +111,11 @@ def make_eval_dataloader(
     label_col: str = "intent_int",
     batch_size: int = 32,
     shuffle: bool = False,
+    section_col: Optional[str] = None,
 ) -> DataLoader:
     texts = examples[col_text].astype(str).tolist()
     labels = examples[label_col].astype(int).tolist()
+    sections = examples[section_col].astype(int).tolist() if section_col else None
 
     label_masks = np.ones(len(examples), dtype=bool)
     dataset = TextDataset(
@@ -109,5 +124,6 @@ def make_eval_dataloader(
         label_masks=label_masks,
         max_seq_length=max_seq_length,
         model_name=model_name,
+        section_ids=sections,
     )
     return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
