@@ -1,0 +1,28 @@
+{
+  "best_epoch": 29,
+  "best_val_f1_macro": 0.45857740848059586,
+  "dataset_name": "3C",
+  "deterministic": true,
+  "device": "cuda:0",
+  "finished_at": "2026-07-27T05:14:39.585010+00:00",
+  "frozen_transformer_params": 0,
+  "git_commit": "54620e909528a28238c72977a8d92bb4080b9ed4",
+  "gpu_name": "NVIDIA RTX 5000 Ada Generation",
+  "labels": [
+    "background",
+    "comparecontrast",
+    "extension",
+    "future",
+    "motivation",
+    "uses"
+  ],
+  "model_name": "xlnet-base-cased",
+  "n_test": 375,
+  "n_train_labeled": 2250,
+  "n_val": 337,
+  "num_trainable_layers": 12,
+  "seed": 3,
+  "started_at": "2026-07-27T05:09:59.114248+00:00",
+  "trainable_transformer_params": 116718336,
+  "wall_clock_seconds": 280.4735686779022
+}

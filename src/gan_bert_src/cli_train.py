@@ -20,7 +20,14 @@ from gan_bert.config import GanBertConfig
 from gan_bert.data import label_str2int, make_eval_dataloader, make_train_dataloader, section_str2int
 from gan_bert.models import ConditionalGenerator, Discriminator
 from gan_bert.train_eval import evaluate, predict, train_one_epoch
-from gan_bert.utils import SavePaths, freeze_transformer_layers, get_device, save_json, set_seed
+from gan_bert.utils import (
+    SavePaths,
+    best_checkpoint,
+    freeze_transformer_layers,
+    get_device,
+    save_json,
+    set_seed,
+)
 
 # Must match src/utils/gan_bert_preprocessing.py's SECTION_VOCAB (kept as a
 # duplicated constant since that script and this package live in separate,
@@ -95,6 +102,11 @@ def parse_args():
     p.add_argument("--section_embed_dim", type=int, default=16)
     p.add_argument("--dataset_name", type=str, default=None, help="Free-text label recorded in run_meta.json.")
     p.add_argument("--seed", type=int, default=42)
+    p.add_argument(
+        "--nondeterministic",
+        action="store_true",
+        help="Allow nondeterministic GPU kernels (faster, but a fixed seed no longer pins the run).",
+    )
     p.add_argument("--no_cuda", action="store_true")
     return p.parse_args()
 
@@ -154,7 +166,7 @@ def _plot_confusion_matrix(cm, labels: List[str], out_path: Path, title: str) ->
 def main():
     args = parse_args()
     device = get_device(prefer_cuda=not args.no_cuda)
-    set_seed(args.seed)
+    set_seed(args.seed, deterministic=not args.nondeterministic)
 
     cfg = GanBertConfig(
         seed=args.seed,
@@ -322,6 +334,7 @@ def main():
         "git_commit": _git_commit_hash(),
         "started_at": datetime.now(timezone.utc).isoformat(),
         "seed": args.seed,
+        "deterministic": not args.nondeterministic,
         "n_train_labeled": len(labeled),
         "n_train_unlabeled": len(unlabeled) if unlabeled is not None else 0,
         "n_val": len(val),
@@ -419,9 +432,52 @@ def main():
             shuffle=False,
             section_col=section_train_col,
         )
-        test_metrics = evaluate(test_loader, transformer, discriminator, device=device, verbose=True, section_embed=section_embed)
+        # Two test evaluations are reported. The *final-epoch* weights are what
+        # earlier revisions of this script reported; they are kept for
+        # comparability but are NOT the headline number, because at a fixed
+        # epoch budget an overfitting arm is penalized and a still-improving arm
+        # is flattered. The headline `test_metrics.json` therefore uses the
+        # best-validation-F1 checkpoint, i.e. the same model-selection rule for
+        # every arm.
+        final_metrics = evaluate(
+            test_loader, transformer, discriminator, device=device, verbose=True, section_embed=section_embed
+        )
         save_json(
             {
+                "selection": "final_epoch",
+                "epoch": cfg.num_train_epochs,
+                "accuracy": final_metrics["accuracy"],
+                "f1_macro": final_metrics["f1_macro"],
+                "avg_loss": final_metrics["avg_loss"],
+                "confusion_matrix": final_metrics["confusion_matrix"].tolist(),
+                "classification_report": final_metrics["classification_report"],
+            },
+            paths.root / "test_metrics_final_epoch.json",
+        )
+
+        t_ckpt = best_checkpoint(paths.transformer_dir, "transformer_")
+        d_ckpt = best_checkpoint(paths.discriminator_dir, "discriminator_")
+        if t_ckpt is not None and d_ckpt is not None:
+            print(f"\nReloading best-validation checkpoints: {t_ckpt.name} / {d_ckpt.name}")
+            transformer.load_state_dict(torch.load(t_ckpt, map_location=device))
+            discriminator.load_state_dict(torch.load(d_ckpt, map_location=device))
+            if section_embed is not None:
+                s_ckpt = best_checkpoint(paths.discriminator_dir, "section_embed_")
+                if s_ckpt is not None:
+                    section_embed.load_state_dict(torch.load(s_ckpt, map_location=device))
+            test_metrics = evaluate(
+                test_loader, transformer, discriminator, device=device, verbose=True, section_embed=section_embed
+            )
+            selection, sel_epoch = "best_val_f1_checkpoint", best_epoch
+        else:
+            print("\nWARNING: no checkpoints found; reporting final-epoch weights as the headline metrics.")
+            test_metrics = final_metrics
+            selection, sel_epoch = "final_epoch", cfg.num_train_epochs
+
+        save_json(
+            {
+                "selection": selection,
+                "epoch": sel_epoch,
                 "accuracy": test_metrics["accuracy"],
                 "f1_macro": test_metrics["f1_macro"],
                 "avg_loss": test_metrics["avg_loss"],

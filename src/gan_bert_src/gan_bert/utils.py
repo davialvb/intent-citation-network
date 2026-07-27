@@ -4,6 +4,7 @@ import datetime
 import json
 import os
 import random
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
@@ -12,13 +13,46 @@ import numpy as np
 import torch
 
 
-def set_seed(seed: int = 42) -> None:
-    """Set random seeds for reproducibility."""
+# cuBLAS reads this when it initializes its workspace, which happens on the first
+# GPU matmul. Setting it at import time (before any CUDA work) is what makes
+# torch.use_deterministic_algorithms() usable for the cuBLAS-backed ops; setting
+# it later has no effect for the current process.
+os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
+
+
+def set_seed(seed: int = 42, deterministic: bool = True) -> None:
+    """Seed every RNG the training loop draws from.
+
+    With ``deterministic=True`` this also pins the nondeterministic GPU kernels,
+    so that two runs of the same configuration on the same hardware produce
+    identical results. Without it, cuDNN algorithm selection and atomic-add
+    reduction order vary between runs and a fixed seed does NOT pin a
+    trajectory -- an effect measured at ~0.02 macro-F1 on this project, large
+    enough to swamp the differences some ablations report.
+
+    ``warn_only=True`` keeps the run alive if an op has no deterministic
+    implementation (it warns instead of raising); check the warnings if exact
+    reproducibility matters for a given configuration.
+    """
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
+
+    if deterministic:
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+        torch.use_deterministic_algorithms(True, warn_only=True)
+        # The fused attention kernels accumulate their backward pass with
+        # atomics, so their reduction order -- and therefore the gradient --
+        # varies between runs. Restrict scaled-dot-product attention to the
+        # math backend, which is deterministic. This is the one remaining
+        # source of run-to-run drift once cuDNN and cuBLAS are pinned.
+        if hasattr(torch.backends.cuda, "enable_mem_efficient_sdp"):
+            torch.backends.cuda.enable_mem_efficient_sdp(False)
+            torch.backends.cuda.enable_flash_sdp(False)
+            torch.backends.cuda.enable_math_sdp(True)
 
 
 def get_device(prefer_cuda: bool = True) -> torch.device:
@@ -123,6 +157,25 @@ def freeze_transformer_layers(transformer: Any, num_trainable_layers: int) -> Di
     trainable = sum(p.numel() for p in transformer.parameters() if p.requires_grad)
     frozen = sum(p.numel() for p in transformer.parameters() if not p.requires_grad)
     return {"trainable_params": trainable, "frozen_params": frozen}
+
+
+def best_checkpoint(directory: str | Path, prefix: str) -> Optional[Path]:
+    """Highest-validation-F1 checkpoint written by the training CLIs, or None.
+
+    Checkpoints are named ``<prefix>epoch<N>_f1_<score>.pth``; the score in the
+    filename is the validation macro-F1 that triggered the save, so the maximum
+    over that field is the best-validation checkpoint.
+    """
+    directory = Path(directory)
+    candidates = list(directory.glob(f"{prefix}*.pth"))
+    if not candidates:
+        return None
+
+    def f1_of(path: Path) -> float:
+        m = re.search(r"_f1_([0-9.]+)\.pth$", path.name)
+        return float(m.group(1)) if m else -1.0
+
+    return max(candidates, key=f1_of)
 
 
 @dataclass(frozen=True)

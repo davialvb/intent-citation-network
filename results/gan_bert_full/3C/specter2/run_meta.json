@@ -4,9 +4,9 @@
   "consistency_weight": 0.0,
   "dataset_name": "3C",
   "device": "cuda:0",
-  "finished_at": "2026-07-12T02:08:44.587683+00:00",
+  "finished_at": "2026-07-22T00:07:31.224806+00:00",
   "frozen_transformer_params": 0,
-  "git_commit": "f91b70bfc36a839c58e31fc30250f44c141864a0",
+  "git_commit": "54620e909528a28238c72977a8d92bb4080b9ed4",
   "gpu_name": "NVIDIA RTX 5000 Ada Generation",
   "label_smoothing": 0.0,
   "labels": [
@@ -25,8 +25,11 @@
   "n_val": 337,
   "num_labels": 6,
   "num_trainable_layers": 12,
+  "section_embed_dim": null,
+  "section_vocab": null,
   "seed": 42,
-  "started_at": "2026-07-12T01:58:24.660323+00:00",
+  "started_at": "2026-07-22T00:02:48.312230+00:00",
   "trainable_transformer_params": 109918464,
-  "wall_clock_seconds": 619.9299705028534
+  "use_section_feature": false,
+  "wall_clock_seconds": 282.91512155532837
 }

@@ -1,0 +1,28 @@
+{
+  "best_epoch": 7,
+  "best_val_f1_macro": 0.45929896094514183,
+  "dataset_name": "3C",
+  "deterministic": true,
+  "device": "cuda:0",
+  "finished_at": "2026-07-27T04:17:45.511063+00:00",
+  "frozen_transformer_params": 0,
+  "git_commit": "54620e909528a28238c72977a8d92bb4080b9ed4",
+  "gpu_name": "NVIDIA RTX 5000 Ada Generation",
+  "labels": [
+    "background",
+    "comparecontrast",
+    "extension",
+    "future",
+    "motivation",
+    "uses"
+  ],
+  "model_name": "allenai/specter2_base",
+  "n_test": 375,
+  "n_train_labeled": 2250,
+  "n_val": 337,
+  "num_trainable_layers": 12,
+  "seed": 2,
+  "started_at": "2026-07-27T04:14:12.622999+00:00",
+  "trainable_transformer_params": 109918464,
+  "wall_clock_seconds": 212.8908350467682
+}

@@ -1,0 +1,17 @@
+{
+  "batch_size": 32,
+  "dropout": 0.1,
+  "epochs": 20,
+  "label_smoothing": 0.0,
+  "labels": [
+    "background",
+    "method",
+    "result"
+  ],
+  "lr": 1e-06,
+  "max_seq_length": 160,
+  "model_name": "allenai/scibert_scivocab_uncased",
+  "num_labels": 3,
+  "num_trainable_layers": 12,
+  "weight_decay": 0.01
+}

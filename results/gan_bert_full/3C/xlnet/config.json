@@ -16,6 +16,8 @@
   "num_trainable_layers": 12,
   "out_dropout_rate": 0.1,
   "print_each_n_step": 10,
+  "section_embed_dim": 16,
   "seed": 42,
+  "use_section_feature": false,
   "warmup_proportion": 0.1
 }

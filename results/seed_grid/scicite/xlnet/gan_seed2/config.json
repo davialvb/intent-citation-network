@@ -1,0 +1,23 @@
+{
+  "apply_scheduler": true,
+  "batch_size": 32,
+  "discriminator_noise_stddev": 0.1,
+  "epsilon": 2e-07,
+  "hidden_size": 768,
+  "learning_rate_discriminator": 2e-07,
+  "learning_rate_generator": 2e-07,
+  "max_seq_length": 160,
+  "model_name": "xlnet-base-cased",
+  "noise_size": 768,
+  "num_hidden_layers_d": 1,
+  "num_hidden_layers_g": 1,
+  "num_labels": 3,
+  "num_train_epochs": 20,
+  "num_trainable_layers": 12,
+  "out_dropout_rate": 0.2,
+  "print_each_n_step": 10,
+  "section_embed_dim": 16,
+  "seed": 2,
+  "use_section_feature": false,
+  "warmup_proportion": 0.1
+}

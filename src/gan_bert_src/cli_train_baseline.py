@@ -28,6 +28,7 @@ from gan_bert.data import label_str2int, make_eval_dataloader, make_train_datalo
 from gan_bert.models import SimpleClassifier
 from gan_bert.utils import (
     SavePaths,
+    best_checkpoint,
     freeze_transformer_layers,
     get_device,
     get_transformer_representation,
@@ -51,10 +52,28 @@ def parse_args():
     p.add_argument("--max_seq_length", type=int, default=160)
     p.add_argument("--lr", type=float, default=2e-5)
     p.add_argument("--dropout", type=float, default=0.1)
+    p.add_argument(
+        "--label_smoothing",
+        type=float,
+        default=0.0,
+        help="Label smoothing on the supervised cross-entropy. Lets the no-GAN arm be compared "
+        "against the 'improved' SS-cGAN's label-smoothing ingredient in isolation.",
+    )
+    p.add_argument(
+        "--weight_decay",
+        type=float,
+        default=0.01,
+        help="AdamW weight decay (0.01 is torch's default, i.e. what the original runs used).",
+    )
     p.add_argument("--num_trainable_layers", type=int, default=2)
     p.add_argument("--warmup_proportion", type=float, default=0.1)
     p.add_argument("--dataset_name", type=str, default=None)
     p.add_argument("--seed", type=int, default=42)
+    p.add_argument(
+        "--nondeterministic",
+        action="store_true",
+        help="Allow nondeterministic GPU kernels (faster, but a fixed seed no longer pins the run).",
+    )
     p.add_argument("--no_cuda", action="store_true")
     return p.parse_args()
 
@@ -115,7 +134,7 @@ def evaluate(dataloader, transformer, classifier, device):
 def main():
     args = parse_args()
     device = get_device(prefer_cuda=not args.no_cuda)
-    set_seed(args.seed)
+    set_seed(args.seed, deterministic=not args.nondeterministic)
 
     labeled = pd.read_csv(args.labeled_csv)
     val = pd.read_csv(args.val_csv)
@@ -161,7 +180,7 @@ def main():
     classifier.to(device)
 
     trainable_vars = [p for p in transformer.parameters() if p.requires_grad] + list(classifier.parameters())
-    optimizer = torch.optim.AdamW(trainable_vars, lr=args.lr)
+    optimizer = torch.optim.AdamW(trainable_vars, lr=args.lr, weight_decay=args.weight_decay)
 
     num_train_steps = len(train_loader) * args.epochs
     num_warmup_steps = int(num_train_steps * args.warmup_proportion)
@@ -178,6 +197,9 @@ def main():
             "batch_size": args.batch_size,
             "max_seq_length": args.max_seq_length,
             "num_trainable_layers": args.num_trainable_layers,
+            "label_smoothing": args.label_smoothing,
+            "weight_decay": args.weight_decay,
+            "dropout": args.dropout,
         },
         paths.config_path,
     )
@@ -195,12 +217,15 @@ def main():
         "git_commit": _git_commit_hash(),
         "started_at": datetime.now(timezone.utc).isoformat(),
         "seed": args.seed,
+        "deterministic": not args.nondeterministic,
         "n_train_labeled": len(labeled),
         "n_val": len(val),
         "n_test": len(test) if test is not None else 0,
     }
 
-    nll_loss = nn.CrossEntropyLoss()
+    # Training loss may be smoothed; the validation loss in evaluate() deliberately
+    # stays unsmoothed so val-loss trajectories remain comparable across arms.
+    nll_loss = nn.CrossEntropyLoss(label_smoothing=args.label_smoothing)
     best_f1 = -1.0
     best_epoch = -1
     history: List[dict] = []
@@ -294,10 +319,49 @@ def main():
             batch_size=args.batch_size,
             shuffle=False,
         )
-        test_metrics = evaluate(test_loader, transformer, classifier, device)
-        print(f"TEST accuracy={test_metrics['accuracy']:.4f} f1_macro={test_metrics['f1_macro']:.4f}")
+        # See cli_train.py: the final-epoch numbers are kept for comparability
+        # with earlier revisions, but the headline metrics use the
+        # best-validation-F1 checkpoint so that every arm is selected the same
+        # way regardless of where in the epoch budget it peaks.
+        final_metrics = evaluate(test_loader, transformer, classifier, device)
+        print(
+            f"TEST (final epoch) accuracy={final_metrics['accuracy']:.4f} "
+            f"f1_macro={final_metrics['f1_macro']:.4f}"
+        )
         save_json(
             {
+                "selection": "final_epoch",
+                "epoch": args.epochs,
+                "accuracy": final_metrics["accuracy"],
+                "f1_macro": final_metrics["f1_macro"],
+                "avg_loss": final_metrics["avg_loss"],
+                "confusion_matrix": final_metrics["confusion_matrix"].tolist(),
+                "classification_report": final_metrics["classification_report"],
+            },
+            paths.root / "test_metrics_final_epoch.json",
+        )
+
+        t_ckpt = best_checkpoint(paths.transformer_dir, "transformer_")
+        c_ckpt = best_checkpoint(paths.discriminator_dir, "classifier_")
+        if t_ckpt is not None and c_ckpt is not None:
+            print(f"Reloading best-validation checkpoints: {t_ckpt.name} / {c_ckpt.name}")
+            transformer.load_state_dict(torch.load(t_ckpt, map_location=device))
+            classifier.load_state_dict(torch.load(c_ckpt, map_location=device))
+            test_metrics = evaluate(test_loader, transformer, classifier, device)
+            selection, sel_epoch = "best_val_f1_checkpoint", best_epoch
+        else:
+            print("WARNING: no checkpoints found; reporting final-epoch weights as the headline metrics.")
+            test_metrics = final_metrics
+            selection, sel_epoch = "final_epoch", args.epochs
+
+        print(
+            f"TEST (best checkpoint, epoch {sel_epoch}) accuracy={test_metrics['accuracy']:.4f} "
+            f"f1_macro={test_metrics['f1_macro']:.4f}"
+        )
+        save_json(
+            {
+                "selection": selection,
+                "epoch": sel_epoch,
                 "accuracy": test_metrics["accuracy"],
                 "f1_macro": test_metrics["f1_macro"],
                 "avg_loss": test_metrics["avg_loss"],
