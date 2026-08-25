@@ -18,7 +18,7 @@ from transformers import AutoConfig, AutoModel, get_constant_schedule_with_warmu
 
 from gan_bert.config import GanBertConfig
 from gan_bert.data import label_str2int, make_eval_dataloader, make_train_dataloader, section_str2int
-from gan_bert.models import ConditionalGenerator, Discriminator
+from gan_bert.models import ConditionalGenerator, Discriminator, Generator
 from gan_bert.train_eval import evaluate, predict, train_one_epoch
 from gan_bert.utils import (
     SavePaths,
@@ -91,6 +91,23 @@ def parse_args():
         default=0.0,
         help="Weight for Pi-model consistency regularization on the unlabeled stream "
         "(two stochastic discriminator forward passes); 0 = vanilla GAN-BERT.",
+    )
+    p.add_argument(
+        "--opt_scheme",
+        choices=["decoupled", "coupled"],
+        default="decoupled",
+        help="'decoupled' (default): D steps on d_loss alone with the fakes detached, G steps "
+        "on g_loss alone against a detached real-feature target, so neither player's loss "
+        "contaminates the other's (or the encoder's) gradient. 'coupled': the original shared-graph "
+        "behavior, retained only to reproduce result dirs created before this fix.",
+    )
+    p.add_argument(
+        "--generator_type",
+        choices=["conditional", "unconditional"],
+        default="conditional",
+        help="'conditional' (default): generator input is noise concatenated with each row's "
+        "numeric label id (unlabeled rows use the sentinel unknown-label id). 'unconditional': "
+        "plain noise-only generator, for ablating the conditioning.",
     )
     p.add_argument(
         "--use_section_feature",
@@ -276,12 +293,21 @@ def main():
     hidden_levels_g = [cfg.hidden_size for _ in range(cfg.num_hidden_layers_g)]
     hidden_levels_d = [cfg.hidden_size for _ in range(cfg.num_hidden_layers_d)]
 
-    generator = ConditionalGenerator(
-        noise_size=cfg.noise_size,
-        output_size=combined_size,
-        hidden_sizes=hidden_levels_g,
-        dropout_rate=cfg.out_dropout_rate,
-    )
+    use_conditional_generator = args.generator_type == "conditional"
+    if use_conditional_generator:
+        generator = ConditionalGenerator(
+            noise_size=cfg.noise_size,
+            output_size=combined_size,
+            hidden_sizes=hidden_levels_g,
+            dropout_rate=cfg.out_dropout_rate,
+        )
+    else:
+        generator = Generator(
+            noise_size=cfg.noise_size,
+            output_size=combined_size,
+            hidden_sizes=hidden_levels_g,
+            dropout_rate=cfg.out_dropout_rate,
+        )
     discriminator = Discriminator(
         input_size=combined_size,
         hidden_sizes=hidden_levels_d,
@@ -326,6 +352,8 @@ def main():
         "frozen_transformer_params": freeze_stats["frozen_params"],
         "label_smoothing": args.label_smoothing,
         "consistency_weight": args.consistency_weight,
+        "opt_scheme": args.opt_scheme,
+        "generator_type": args.generator_type,
         "use_section_feature": args.use_section_feature,
         "section_embed_dim": args.section_embed_dim if args.use_section_feature else None,
         "section_vocab": SECTION_VOCAB if args.use_section_feature else None,
@@ -366,9 +394,12 @@ def main():
             label_smoothing=args.label_smoothing,
             consistency_weight=args.consistency_weight,
             section_embed=section_embed,
+            opt_scheme=args.opt_scheme,
+            use_conditional_generator=use_conditional_generator,
         )
         print(f"  Avg generator loss: {stats['avg_gen_loss']:.4f}")
         print(f"  Avg discriminator loss: {stats['avg_dis_loss']:.4f}")
+        print(f"  Real/fake logit margin: {stats['avg_real_fake_margin']:.4f}")
         print(f"  Epoch time: {stats['epoch_time']}")
 
         print("\nRunning validation...")
@@ -379,6 +410,7 @@ def main():
                 "epoch": epoch,
                 "avg_gen_loss": stats["avg_gen_loss"],
                 "avg_dis_loss": stats["avg_dis_loss"],
+                "real_fake_margin": stats["avg_real_fake_margin"],
                 "epoch_time": stats["epoch_time"],
                 "val_accuracy": val_metrics["accuracy"],
                 "val_f1_macro": val_metrics["f1_macro"],

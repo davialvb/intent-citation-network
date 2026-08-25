@@ -128,7 +128,12 @@ def train_one_epoch(
     label_smoothing: float = 0.0,
     consistency_weight: float = 0.0,
     section_embed=None,
+    opt_scheme: str = "decoupled",
+    use_conditional_generator: bool = True,
 ):
+    if opt_scheme not in ("decoupled", "coupled"):
+        raise ValueError(f"Unknown opt_scheme: {opt_scheme!r}")
+
     transformer.train()
     generator.train()
     discriminator.train()
@@ -137,6 +142,7 @@ def train_one_epoch(
 
     tr_g_loss = 0.0
     tr_d_loss = 0.0
+    tr_margin = 0.0
 
     t0 = time.time()
 
@@ -156,45 +162,87 @@ def train_one_epoch(
         real_rep = _augment_with_section(real_rep, batch, section_embed, device)
 
         noise, cond_labels = get_cgan_input(real_batch_size, noise_size, labels, device=device)
-        fake_rep = generator(noise, cond_labels)
+        fake_rep = generator(noise, cond_labels) if use_conditional_generator else generator(noise)
 
-        disc_input = torch.cat([real_rep, fake_rep], dim=0)
-        features, logits, probs = discriminator(disc_input)
+        if opt_scheme == "coupled":
+            # Reference behavior, retained only to reproduce result dirs predating
+            # the decoupled fix: one shared forward/backward graph, so gradients
+            # from g_loss also land on the discriminator and transformer before
+            # either optimizer steps (measured contamination: ~31% of D's
+            # gradient, ~50% of G's, came from the other player's loss).
+            disc_input = torch.cat([real_rep, fake_rep], dim=0)
+            features, logits, probs = discriminator(disc_input)
 
-        real_features, fake_features = torch.split(features, real_batch_size)
-        real_logits, _fake_logits = torch.split(logits, real_batch_size)
-        real_probs, fake_probs = torch.split(probs, real_batch_size)
+            real_features, fake_features = torch.split(features, real_batch_size)
+            real_logits, fake_logits = torch.split(logits, real_batch_size)
+            real_probs, fake_probs = torch.split(probs, real_batch_size)
 
-        g_loss = generator_loss(fake_probs, fake_features, real_features, epsilon)
-        d_loss = discriminator_loss(
-            real_logits,
-            real_probs,
-            fake_probs,
-            labels=labels,
-            label_mask=label_mask,
-            num_labels=num_labels,
-            epsilon=epsilon,
-            device=device,
-            label_smoothing=label_smoothing,
-        )
-
-        if consistency_weight > 0:
-            # Second stochastic forward pass (independent dropout / Gaussian-noise
-            # draws) through the discriminator on the same real representations;
-            # penalize disagreement on the unlabeled rows only.
-            _, real_logits_b, _ = discriminator(real_rep)
-            d_loss = d_loss + consistency_weight * consistency_loss(
-                real_logits, real_logits_b, label_mask=label_mask, num_labels=num_labels
+            g_loss = generator_loss(fake_probs, fake_features, real_features, epsilon)
+            d_loss = discriminator_loss(
+                real_logits,
+                real_probs,
+                fake_probs,
+                labels=labels,
+                label_mask=label_mask,
+                num_labels=num_labels,
+                epsilon=epsilon,
+                device=device,
+                label_smoothing=label_smoothing,
             )
+            if consistency_weight > 0:
+                _, real_logits_b, _ = discriminator(real_rep)
+                d_loss = d_loss + consistency_weight * consistency_loss(
+                    real_logits, real_logits_b, label_mask=label_mask, num_labels=num_labels
+                )
 
-        gen_optimizer.zero_grad(set_to_none=True)
-        dis_optimizer.zero_grad(set_to_none=True)
+            gen_optimizer.zero_grad(set_to_none=True)
+            dis_optimizer.zero_grad(set_to_none=True)
+            g_loss.backward(retain_graph=True)
+            d_loss.backward()
+            gen_optimizer.step()
+            dis_optimizer.step()
 
-        g_loss.backward(retain_graph=True)
-        d_loss.backward()
+        else:  # decoupled
+            # D step: fakes are detached, so g_loss can never reach D's or the
+            # encoder's gradient.
+            d_input = torch.cat([real_rep, fake_rep.detach()], dim=0)
+            d_features, d_logits, d_probs = discriminator(d_input)
+            real_features, _fake_features_d = torch.split(d_features, real_batch_size)
+            real_logits, fake_logits = torch.split(d_logits, real_batch_size)
+            real_probs, fake_probs = torch.split(d_probs, real_batch_size)
 
-        gen_optimizer.step()
-        dis_optimizer.step()
+            d_loss = discriminator_loss(
+                real_logits,
+                real_probs,
+                fake_probs,
+                labels=labels,
+                label_mask=label_mask,
+                num_labels=num_labels,
+                epsilon=epsilon,
+                device=device,
+                label_smoothing=label_smoothing,
+            )
+            if consistency_weight > 0:
+                _, real_logits_b, _ = discriminator(real_rep)
+                d_loss = d_loss + consistency_weight * consistency_loss(
+                    real_logits, real_logits_b, label_mask=label_mask, num_labels=num_labels
+                )
+            dis_optimizer.zero_grad(set_to_none=True)
+            d_loss.backward()
+            dis_optimizer.step()
+
+            # G step: fresh forward through the just-updated discriminator; the
+            # real-feature matching target is detached so g_loss cannot reach the
+            # discriminator or the encoder.
+            g_input = torch.cat([real_rep.detach(), fake_rep], dim=0)
+            g_features, _g_logits, g_probs = discriminator(g_input)
+            real_features_g, fake_features_g = torch.split(g_features, real_batch_size)
+            _, fake_probs_g = torch.split(g_probs, real_batch_size)
+
+            g_loss = generator_loss(fake_probs_g, fake_features_g, real_features_g.detach(), epsilon)
+            gen_optimizer.zero_grad(set_to_none=True)
+            g_loss.backward()
+            gen_optimizer.step()
 
         if apply_scheduler:
             if scheduler_d is not None:
@@ -204,12 +252,15 @@ def train_one_epoch(
 
         tr_g_loss += float(g_loss.detach().cpu())
         tr_d_loss += float(d_loss.detach().cpu())
+        tr_margin += float((fake_logits[:, -1].mean() - real_logits[:, -1].mean()).detach().cpu())
 
     avg_g = tr_g_loss / max(1, len(dataloader))
     avg_d = tr_d_loss / max(1, len(dataloader))
+    avg_margin = tr_margin / max(1, len(dataloader))
 
     return {
         "avg_gen_loss": avg_g,
         "avg_dis_loss": avg_d,
+        "avg_real_fake_margin": avg_margin,
         "epoch_time": format_time(time.time() - t0),
     }

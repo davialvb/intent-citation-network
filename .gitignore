@@ -224,3 +224,8 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+data/scicite/gan_bert/labeled_train.csv
+data/scicite/gan_bert/metadata.json
+data/scicite/gan_bert/test.csv
+data/scicite/gan_bert/unsupervised.csv
+data/scicite/gan_bert/val.csv

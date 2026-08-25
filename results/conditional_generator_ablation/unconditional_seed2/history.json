@@ -1,0 +1,202 @@
+[
+  {
+    "avg_dis_loss": 2.7193571708211497,
+    "avg_gen_loss": 0.34457674108702563,
+    "epoch": 1,
+    "epoch_time": "0:00:43",
+    "real_fake_margin": 0.03861851123129499,
+    "val_accuracy": 0.5097087378640777,
+    "val_avg_loss": 1.0619196800085215,
+    "val_f1_macro": 0.3625272331154685
+  },
+  {
+    "avg_dis_loss": 2.6457856030299745,
+    "avg_gen_loss": 0.34329453247717057,
+    "epoch": 2,
+    "epoch_time": "0:00:43",
+    "real_fake_margin": 0.11727777752896835,
+    "val_accuracy": 0.5861650485436893,
+    "val_avg_loss": 0.994557472375723,
+    "val_f1_macro": 0.2622785392210712
+  },
+  {
+    "avg_dis_loss": 2.548936709590342,
+    "avg_gen_loss": 0.3397553270804014,
+    "epoch": 3,
+    "epoch_time": "0:00:43",
+    "real_fake_margin": 0.2477981755902484,
+    "val_accuracy": 0.5837378640776699,
+    "val_avg_loss": 0.9355446696281433,
+    "val_f1_macro": 0.24572158365261812
+  },
+  {
+    "avg_dis_loss": 2.4831781350789854,
+    "avg_gen_loss": 0.33538382571775793,
+    "epoch": 4,
+    "epoch_time": "0:00:43",
+    "real_fake_margin": 0.3839398402135491,
+    "val_accuracy": 0.5837378640776699,
+    "val_avg_loss": 0.891526460647583,
+    "val_f1_macro": 0.24572158365261812
+  },
+  {
+    "avg_dis_loss": 2.4375660483407793,
+    "avg_gen_loss": 0.329242078851466,
+    "epoch": 5,
+    "epoch_time": "0:00:43",
+    "real_fake_margin": 0.49839795001165166,
+    "val_accuracy": 0.6055825242718447,
+    "val_avg_loss": 0.840680195735051,
+    "val_f1_macro": 0.29735102024258653
+  },
+  {
+    "avg_dis_loss": 2.3938972420162625,
+    "avg_gen_loss": 0.32003846524775714,
+    "epoch": 6,
+    "epoch_time": "0:00:43",
+    "real_fake_margin": 0.5601063897098161,
+    "val_accuracy": 0.7087378640776699,
+    "val_avg_loss": 0.7708943348664504,
+    "val_f1_macro": 0.47693028958851746
+  },
+  {
+    "avg_dis_loss": 2.348650082774546,
+    "avg_gen_loss": 0.30999633978153096,
+    "epoch": 7,
+    "epoch_time": "0:00:43",
+    "real_fake_margin": 0.5745372766507539,
+    "val_accuracy": 0.7390776699029126,
+    "val_avg_loss": 0.7033178875079522,
+    "val_f1_macro": 0.5213057812409972
+  },
+  {
+    "avg_dis_loss": 2.307950903172694,
+    "avg_gen_loss": 0.3010284709976094,
+    "epoch": 8,
+    "epoch_time": "0:00:43",
+    "real_fake_margin": 0.5666427130443383,
+    "val_accuracy": 0.7560679611650486,
+    "val_avg_loss": 0.6457980871200562,
+    "val_f1_macro": 0.5917947778286762
+  },
+  {
+    "avg_dis_loss": 2.2779105138961384,
+    "avg_gen_loss": 0.2927521450081091,
+    "epoch": 9,
+    "epoch_time": "0:00:43",
+    "real_fake_margin": 0.5501822599734383,
+    "val_accuracy": 0.8021844660194175,
+    "val_avg_loss": 0.5938558796277413,
+    "val_f1_macro": 0.7293384841957181
+  },
+  {
+    "avg_dis_loss": 2.2509414884779186,
+    "avg_gen_loss": 0.28498882283652877,
+    "epoch": 10,
+    "epoch_time": "0:00:43",
+    "real_fake_margin": 0.5348877878253031,
+    "val_accuracy": 0.816747572815534,
+    "val_avg_loss": 0.5553803134423035,
+    "val_f1_macro": 0.7659627403257506
+  },
+  {
+    "avg_dis_loss": 2.235475381672154,
+    "avg_gen_loss": 0.2782899683691076,
+    "epoch": 11,
+    "epoch_time": "0:00:43",
+    "real_fake_margin": 0.5216636276336465,
+    "val_accuracy": 0.8276699029126213,
+    "val_avg_loss": 0.5253796978638723,
+    "val_f1_macro": 0.7967108184061108
+  },
+  {
+    "avg_dis_loss": 2.2254739328362474,
+    "avg_gen_loss": 0.2723409375925174,
+    "epoch": 12,
+    "epoch_time": "0:00:43",
+    "real_fake_margin": 0.49603933849553955,
+    "val_accuracy": 0.8313106796116505,
+    "val_avg_loss": 0.5043886728011645,
+    "val_f1_macro": 0.8013024085502048
+  },
+  {
+    "avg_dis_loss": 2.2178094524076615,
+    "avg_gen_loss": 0.26737808884332004,
+    "epoch": 13,
+    "epoch_time": "0:00:43",
+    "real_fake_margin": 0.4787176052729289,
+    "val_accuracy": 0.8361650485436893,
+    "val_avg_loss": 0.4857497066259384,
+    "val_f1_macro": 0.8110105466691756
+  },
+  {
+    "avg_dis_loss": 2.212765573998521,
+    "avg_gen_loss": 0.2630676719649085,
+    "epoch": 14,
+    "epoch_time": "0:00:43",
+    "real_fake_margin": 0.45127891820509314,
+    "val_accuracy": 0.8410194174757282,
+    "val_avg_loss": 0.4721015886618541,
+    "val_f1_macro": 0.8179061710567507
+  },
+  {
+    "avg_dis_loss": 2.2083958245785302,
+    "avg_gen_loss": 0.2596646105991926,
+    "epoch": 15,
+    "epoch_time": "0:00:43",
+    "real_fake_margin": 0.4311731438298792,
+    "val_accuracy": 0.837378640776699,
+    "val_avg_loss": 0.4604069728117723,
+    "val_f1_macro": 0.8142839763072733
+  },
+  {
+    "avg_dis_loss": 2.2042357748038923,
+    "avg_gen_loss": 0.25619002902644805,
+    "epoch": 16,
+    "epoch_time": "0:00:43",
+    "real_fake_margin": 0.40843286448054844,
+    "val_accuracy": 0.8410194174757282,
+    "val_avg_loss": 0.45274357898877216,
+    "val_f1_macro": 0.8174954860502925
+  },
+  {
+    "avg_dis_loss": 2.1946624343879377,
+    "avg_gen_loss": 0.25370703534833317,
+    "epoch": 17,
+    "epoch_time": "0:00:43",
+    "real_fake_margin": 0.3835135304379737,
+    "val_accuracy": 0.8434466019417476,
+    "val_avg_loss": 0.44602465572265476,
+    "val_f1_macro": 0.8196070554903921
+  },
+  {
+    "avg_dis_loss": 2.191899490995882,
+    "avg_gen_loss": 0.2524907248116088,
+    "epoch": 18,
+    "epoch_time": "0:00:43",
+    "real_fake_margin": 0.3578143833469157,
+    "val_accuracy": 0.8422330097087378,
+    "val_avg_loss": 0.4415177502311193,
+    "val_f1_macro": 0.8180212055692162
+  },
+  {
+    "avg_dis_loss": 2.183592182009613,
+    "avg_gen_loss": 0.2510811052788263,
+    "epoch": 19,
+    "epoch_time": "0:00:43",
+    "real_fake_margin": 0.3341672328011743,
+    "val_accuracy": 0.8495145631067961,
+    "val_avg_loss": 0.43520757670585924,
+    "val_f1_macro": 0.8254292017285451
+  },
+  {
+    "avg_dis_loss": 2.171961681596164,
+    "avg_gen_loss": 0.25163901417419826,
+    "epoch": 20,
+    "epoch_time": "0:00:43",
+    "real_fake_margin": 0.3054105014864969,
+    "val_accuracy": 0.8483009708737864,
+    "val_avg_loss": 0.4328070959219566,
+    "val_f1_macro": 0.8238248182948644
+  }
+]
